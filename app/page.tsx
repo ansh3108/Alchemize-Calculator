@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import Image from "next/image";
 
 const THEMES = [
@@ -53,6 +53,24 @@ export default function AlchemizeCalculator() {
   const [name, setName] = useState("");
   const [themeId, setThemeId] = useState("gamedev");
   const [hours, setHours] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("alchemize_projects");
+    if (saved) {
+      try {
+        setProjects(JSON.parse(saved));
+      } catch (e) {
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem("alchemize_projects", JSON.stringify(projects));
+    }
+  }, [projects, isLoaded]);
 
   const handleAddProject = (e: FormEvent) => {
     e.preventDefault();
@@ -81,12 +99,15 @@ export default function AlchemizeCalculator() {
     { gamedev: 0, no_internet: 0, endless: 0, potionMix: 0 }
   );
 
+  if (!isLoaded) {
+    return <main className="min-h-screen p-6 md:p-12 max-w-7xl mx-auto flex flex-col gap-10 bg-[#050000]"></main>;
+  }
+
   return (
     <main className="min-h-screen p-6 md:p-12 max-w-7xl mx-auto flex flex-col gap-10">
       
       <header className="border-b border-red-950 pb-6">
-        <p className="text-red-900 text-xs font-bold tracking-[0.2em] mb-3 uppercase">■ Season 1</p>
-        <h1 className="text-4xl md:text-6xl font-black text-[#b3002d] tracking-tighter uppercase">Alchemize Calculator</h1>
+        <h1 className="text-4xl md:text-6xl font-black text-[#b3002d] tracking-tighter uppercase mt-2">Alchemize Calculator</h1>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
@@ -236,3 +257,4 @@ export default function AlchemizeCalculator() {
     </main>
   );
 }
+
