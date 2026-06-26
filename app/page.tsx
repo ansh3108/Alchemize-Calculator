@@ -21,6 +21,13 @@ interface Totals {
   potionMix: number;
 }
 
+interface Goal {
+  amount: number;
+  currency: string;
+  startDate: string;
+  endDate: string;
+}
+
 const IconSlot = ({ type }: { type: string }) => {
   const getIconPath = () => {
     switch (type) {
@@ -55,22 +62,49 @@ export default function AlchemizeCalculator() {
   const [hours, setHours] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const [goal, setGoal] = useState<Goal | null>(null);
+  const [goalAmount, setGoalAmount] = useState("");
+  const [goalCurrency, setGoalCurrency] = useState("potionMix");
+  const [goalStartDate, setGoalStartDate] = useState("");
+  const [goalEndDate, setGoalEndDate] = useState("");
+
   useEffect(() => {
-    const saved = localStorage.getItem("alchemize_projects");
-    if (saved) {
+    const savedProjects = localStorage.getItem("alchemize_projects");
+    const savedGoal = localStorage.getItem("alchemize_goal");
+    
+    if (savedProjects) {
       try {
-        setProjects(JSON.parse(saved));
+        setProjects(JSON.parse(savedProjects));
       } catch (e) {
       }
     }
+    
+    if (savedGoal) {
+      try {
+        const parsedGoal = JSON.parse(savedGoal);
+        setGoal(parsedGoal);
+        setGoalAmount(parsedGoal.amount.toString());
+        setGoalCurrency(parsedGoal.currency);
+        setGoalStartDate(parsedGoal.startDate);
+        setGoalEndDate(parsedGoal.endDate);
+      } catch (e) {
+      }
+    }
+    
     setIsLoaded(true);
   }, []);
 
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem("alchemize_projects", JSON.stringify(projects));
+      
+      if (goal) {
+        localStorage.setItem("alchemize_goal", JSON.stringify(goal));
+      } else {
+        localStorage.removeItem("alchemize_goal");
+      }
     }
-  }, [projects, isLoaded]);
+  }, [projects, goal, isLoaded]);
 
   const handleAddProject = (e: FormEvent) => {
     e.preventDefault();
@@ -87,6 +121,23 @@ export default function AlchemizeCalculator() {
     setHours("");
   };
 
+  const handleDeleteProject = (id: number) => {
+    setProjects(projects.filter(proj => proj.id !== id));
+  };
+
+  const handleSetGoal = (e: FormEvent) => {
+    e.preventDefault();
+    const amt = parseInt(goalAmount, 10);
+    if (!amt || isNaN(amt) || !goalStartDate || !goalEndDate) return;
+    
+    setGoal({
+      amount: amt,
+      currency: goalCurrency,
+      startDate: goalStartDate,
+      endDate: goalEndDate
+    });
+  };
+
   const getTheme = (id: string) => THEMES.find(t => t.id === id)!;
 
   const totals = projects.reduce(
@@ -98,6 +149,53 @@ export default function AlchemizeCalculator() {
     },
     { gamedev: 0, no_internet: 0, endless: 0, potionMix: 0 }
   );
+
+  let expectedPct = 0;
+  let actualPct = 0;
+  
+  if (goal) {
+    const start = new Date(goal.startDate).getTime();
+    const end = new Date(goal.endDate).getTime();
+    const now = new Date().getTime();
+    
+    const totalTime = end - start;
+    const elapsedTime = now - start;
+    
+    if (totalTime > 0) {
+      expectedPct = (elapsedTime / totalTime) * 100;
+    } else if (totalTime === 0) {
+      expectedPct = 100; 
+    }
+    
+    expectedPct = Math.max(0, Math.min(100, expectedPct));
+    
+    const currentAmount = totals[goal.currency as keyof Totals];
+    if (goal.amount > 0) {
+      actualPct = (currentAmount / goal.amount) * 100;
+    }
+    
+    actualPct = Math.max(0, Math.min(100, actualPct));
+  }
+
+  const getCurrencyColor = (curr: string) => {
+    switch(curr) {
+      case 'gamedev': return 'bg-red-500';
+      case 'no_internet': return 'bg-amber-500';
+      case 'endless': return 'bg-blue-500';
+      case 'potionMix': return 'bg-[#b3002d]';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getCurrencyName = (curr: string) => {
+    switch(curr) {
+      case 'gamedev': return 'Redstone';
+      case 'no_internet': return 'Glowstone';
+      case 'endless': return 'Aqua Regia';
+      case 'potionMix': return 'Potion Mix';
+      default: return '';
+    }
+  };
 
   if (!isLoaded) {
     return <main className="min-h-screen p-6 md:p-12 max-w-7xl mx-auto flex flex-col gap-10 bg-[#050000]"></main>;
@@ -160,15 +258,132 @@ export default function AlchemizeCalculator() {
                 type="submit"
                 className="mt-6 border border-[#b3002d]/50 bg-[#b3002d]/10 text-[#b3002d] p-3 hover:bg-[#b3002d] hover:text-white transition-all uppercase tracking-[0.2em] text-xs font-bold flex items-center justify-center gap-2 group"
               >
-                <span>Compile</span>
+                <span>Calculate</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </button>
+            </form>
+          </div>
+
+          <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#b3002d] to-transparent opacity-50"></div>
+            
+            <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-8 uppercase">Set Target Goal</h2>
+            
+            <form onSubmit={handleSetGoal} className="flex flex-col gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Target Amount</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={goalAmount}
+                  onChange={(e) => setGoalAmount(e.target.value)}
+                  className="bg-transparent border-b border-red-950 p-2 text-gray-200 outline-none focus:border-[#b3002d] transition-colors font-mono text-sm"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Target Currency</label>
+                <select
+                  value={goalCurrency}
+                  onChange={(e) => setGoalCurrency(e.target.value)}
+                  className="bg-[#050000] border-b border-red-950 p-2 text-gray-200 outline-none focus:border-[#b3002d] appearance-none font-mono text-sm cursor-pointer"
+                >
+                  <option value="potionMix">Potion Mix</option>
+                  <option value="gamedev">Redstone (Indie Gamedev)</option>
+                  <option value="no_internet">Glowstone (No Internet)</option>
+                  <option value="endless">Aqua Regia (Endless)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Start Date</label>
+                <input
+                  type="date"
+                  value={goalStartDate}
+                  onChange={(e) => setGoalStartDate(e.target.value)}
+                  className="bg-transparent border-b border-red-950 p-2 text-gray-400 outline-none focus:border-[#b3002d] transition-colors font-mono text-sm uppercase"
+                  style={{ colorScheme: 'dark' }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">End Date</label>
+                <input
+                  type="date"
+                  value={goalEndDate}
+                  onChange={(e) => setGoalEndDate(e.target.value)}
+                  className="bg-transparent border-b border-red-950 p-2 text-gray-400 outline-none focus:border-[#b3002d] transition-colors font-mono text-sm uppercase"
+                  style={{ colorScheme: 'dark' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="mt-6 border border-[#b3002d]/50 bg-[#b3002d]/10 text-[#b3002d] p-3 hover:bg-[#b3002d] hover:text-white transition-all uppercase tracking-[0.2em] text-xs font-bold flex items-center justify-center gap-2 group"
+              >
+                <span>Calculate</span>
                 <span className="group-hover:translate-x-1 transition-transform">→</span>
               </button>
             </form>
           </div>
         </div>
 
+
         <div className="xl:col-span-8 flex flex-col gap-8">
           
+          {goal && (
+            <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)]">
+              <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-6 uppercase flex items-center justify-between">
+                <span>Your Progress</span>
+                <button 
+                  onClick={() => setGoal(null)} 
+                  className="text-[10px] text-red-900/60 hover:text-red-500 transition-colors"
+                >
+                  CLEAR GOAL ✕
+                </button>
+              </h2>
+              
+              <div className="w-full h-8 flex overflow-hidden border border-red-950">
+                {actualPct >= expectedPct ? (
+                  <>
+                    <div style={{ width: `${expectedPct}%` }} className="bg-[#8c3a1c] border-r border-black/50" />
+                    <div style={{ width: `${actualPct - expectedPct}%` }} className={getCurrencyColor(goal.currency)} />
+                    <div style={{ width: `${100 - actualPct}%` }} className="bg-[#111]" />
+                  </>
+                ) : (
+                  <>
+                    <div style={{ width: `${actualPct}%` }} className={getCurrencyColor(goal.currency)} />
+                    <div style={{ width: `${expectedPct - actualPct}%` }} className="bg-[#8c3a1c]" />
+                    <div style={{ width: `${100 - expectedPct}%` }} className="bg-[#111]" />
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3 mt-5">
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-sm ${getCurrencyColor(goal.currency)} shadow-sm`}></div>
+                  <span className="text-gray-300 text-sm font-mono tracking-wide">
+                    You are <span className="text-white font-bold">{actualPct.toFixed(1)}%</span> complete to your goal of {goal.amount} {getCurrencyName(goal.currency)}.
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-sm bg-[#8c3a1c] shadow-sm"></div>
+                  <span className="text-gray-300 text-sm font-mono tracking-wide">
+                    You should be <span className="text-white font-bold">{expectedPct.toFixed(1)}%</span> complete.
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-sm bg-[#111] border border-red-950"></div>
+                  <span className="text-gray-400 text-sm font-mono tracking-wide">
+                    {(100 - actualPct).toFixed(1)}% left until you reach your goal!
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)]">
             <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-6 uppercase">Inventory</h2>
             
@@ -244,6 +459,14 @@ export default function AlchemizeCalculator() {
                           <span className="text-red-900 text-[10px] uppercase tracking-widest">Yield</span>
                           <span className="text-[#b3002d] text-sm font-bold font-mono">+{proj.hours * theme.rate} MIX</span>
                         </div>
+                        
+                        <button
+                          onClick={() => handleDeleteProject(proj.id)}
+                          className="ml-2 w-6 h-6 flex items-center justify-center rounded text-red-950 hover:text-red-500 hover:bg-red-950/30 transition-all text-xs"
+                          title="Delete mix"
+                        >
+                          ✕
+                        </button>
                       </div>
                     </div>
                   );
