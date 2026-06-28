@@ -12,4 +12,17 @@ A native desktop app designed for participants of **Alchemize**. This calculator
 * **Grant Calculator:** Input a monetary target (e.g., a $100 Phone Grant) and the item's cost, and the app will tell you exactly how many hours you need to grind including an Optimized Min. Grind calculation.
 * **Goal Tracking:** Set a specific currency target and date range and a visual progress bar keeps you updated on whether you are ahead of or falling behind your required pace.
 
-  
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/321091c6-0caf-46c7-b5a4-078ce9a27356" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/f0a4c3d5-c82f-48ed-859b-bb18ad95e74e" width="100%"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/2c709280-d2b5-49b3-8f23-69c741980de4" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/0c0e3f83-d8e9-4678-9376-2356478dabb2" width="100%"/></td>
+  </tr>
+</table>
+
+## Usage
+
+Download the latest version [here](https://github.com/ansh3108/Alchemize-Calculator) or [use it in your browser!](https://alchemize-calculator.vercel.app/)
