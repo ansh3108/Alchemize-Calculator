@@ -68,15 +68,20 @@ export default function AlchemizeCalculator() {
   const [goalStartDate, setGoalStartDate] = useState("");
   const [goalEndDate, setGoalEndDate] = useState("");
 
+  const [grantTarget, setGrantTarget] = useState("");
+  const [grantValue, setGrantValue] = useState("");
+  const [grantPrice, setGrantPrice] = useState("");
+  const [grantCurrency, setGrantCurrency] = useState("potionMix");
+
   useEffect(() => {
     const savedProjects = localStorage.getItem("alchemize_projects");
     const savedGoal = localStorage.getItem("alchemize_goal");
+    const savedGrant = localStorage.getItem("alchemize_grant");
     
     if (savedProjects) {
       try {
         setProjects(JSON.parse(savedProjects));
-      } catch (e) {
-      }
+      } catch (e) {}
     }
     
     if (savedGoal) {
@@ -87,8 +92,17 @@ export default function AlchemizeCalculator() {
         setGoalCurrency(parsedGoal.currency);
         setGoalStartDate(parsedGoal.startDate);
         setGoalEndDate(parsedGoal.endDate);
-      } catch (e) {
-      }
+      } catch (e) {}
+    }
+
+    if (savedGrant) {
+      try {
+        const parsedGrant = JSON.parse(savedGrant);
+        setGrantTarget(parsedGrant.grantTarget || "");
+        setGrantValue(parsedGrant.grantValue || "");
+        setGrantPrice(parsedGrant.grantPrice || "");
+        setGrantCurrency(parsedGrant.grantCurrency || "potionMix");
+      } catch (e) {}
     }
     
     setIsLoaded(true);
@@ -97,6 +111,7 @@ export default function AlchemizeCalculator() {
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem("alchemize_projects", JSON.stringify(projects));
+      localStorage.setItem("alchemize_grant", JSON.stringify({ grantTarget, grantValue, grantPrice, grantCurrency }));
       
       if (goal) {
         localStorage.setItem("alchemize_goal", JSON.stringify(goal));
@@ -104,7 +119,7 @@ export default function AlchemizeCalculator() {
         localStorage.removeItem("alchemize_goal");
       }
     }
-  }, [projects, goal, isLoaded]);
+  }, [projects, goal, grantTarget, grantValue, grantPrice, grantCurrency, isLoaded]);
 
   const handleAddProject = (e: FormEvent) => {
     e.preventDefault();
@@ -196,6 +211,20 @@ export default function AlchemizeCalculator() {
       default: return '';
     }
   };
+
+  const targetNum = parseFloat(grantTarget);
+  const valueNum = parseFloat(grantValue);
+  const priceNum = parseFloat(grantPrice);
+  
+  let grantItemsNeeded = 0;
+  let totalGrantCurrencyNeeded = 0;
+  
+  if (!isNaN(targetNum) && !isNaN(valueNum) && valueNum > 0) {
+    grantItemsNeeded = Math.ceil(targetNum / valueNum);
+    if (!isNaN(priceNum)) {
+      totalGrantCurrencyNeeded = grantItemsNeeded * priceNum;
+    }
+  }
 
   if (!isLoaded) {
     return <main className="min-h-screen p-6 md:p-12 max-w-7xl mx-auto flex flex-col gap-10 bg-[#050000]"></main>;
@@ -337,7 +366,7 @@ export default function AlchemizeCalculator() {
                 <span>Your Progress</span>
                 <button 
                   onClick={() => setGoal(null)} 
-                  className="text-[10px] text-red-900/60 hover:text-red-500 transition-colors"
+                  className="text-xs text-red-700/80 hover:text-red-500 transition-colors"
                 >
                   CLEAR GOAL ✕
                 </button>
@@ -423,15 +452,135 @@ export default function AlchemizeCalculator() {
             </div>
           </div>
 
+          <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)]">
+            <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-6 uppercase">Exchange Rates</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {THEMES.map(theme => (
+                <div key={theme.id} className={`border border-red-950/40 p-4 flex flex-col gap-2 bg-black/40 hover:bg-black/60 transition-colors ${theme.borderClass}`}>
+                  <span className={`text-xs font-bold uppercase tracking-wider ${theme.colorClass}`}>{theme.name}</span>
+                  <div className="flex flex-col gap-1 mt-2">
+                    <span className="text-gray-300 text-sm font-mono">1 Hour = 1 {theme.currency}</span>
+                    <span className="text-[#b3002d] text-sm font-mono font-bold">1 Hour = {theme.rate} Potion Mix</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)]">
+            <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-4 uppercase">Grant Calculator</h2>
+            
+            <div className="mb-6 border-l-2 border-[#b3002d]/50 bg-[#b3002d]/10 p-4 text-xs font-mono">
+              <span className="text-[#b3002d] font-bold tracking-widest uppercase mb-2 block">Example: $100 Phone Grant</span>
+              <div className="text-gray-300 flex flex-col gap-1">
+                <p>Goal Target ($): <span className="text-white font-bold">100</span></p>
+                <p>Grant Item Value ($): <span className="text-white font-bold">5</span></p>
+                <p>Item Price (Currencies): <span className="text-white font-bold">5</span></p>
+                <p>Currency Type: <span className="text-white font-bold">Potion Mix</span></p>
+                <p className="mt-2 text-[#b3002d] font-bold">Grind Needed: 25h Redstone | 23h Glowstone | 20h Aqua Regia</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Goal Target ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={grantTarget}
+                  onChange={(e) => setGrantTarget(e.target.value)}
+                  className="bg-transparent border-b border-red-950 p-2 text-gray-200 outline-none focus:border-[#b3002d] transition-colors font-mono text-sm"
+                  placeholder="e.g. 100"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Grant Item Value ($)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={grantValue}
+                  onChange={(e) => setGrantValue(e.target.value)}
+                  className="bg-transparent border-b border-red-950 p-2 text-gray-200 outline-none focus:border-[#b3002d] transition-colors font-mono text-sm"
+                  placeholder="e.g. 5"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Item Price</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={grantPrice}
+                  onChange={(e) => setGrantPrice(e.target.value)}
+                  className="bg-transparent border-b border-red-950 p-2 text-gray-200 outline-none focus:border-[#b3002d] transition-colors font-mono text-sm"
+                  placeholder="e.g. 5"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Currency Type</label>
+                <select
+                  value={grantCurrency}
+                  onChange={(e) => setGrantCurrency(e.target.value)}
+                  className="bg-[#050000] border-b border-red-950 p-2 text-gray-200 outline-none focus:border-[#b3002d] appearance-none font-mono text-sm cursor-pointer"
+                >
+                  <option value="potionMix">Potion Mix</option>
+                  <option value="gamedev">Redstone (Gamedev)</option>
+                  <option value="no_internet">Glowstone (No Internet)</option>
+                  <option value="endless">Aqua Regia (Endless)</option>
+                </select>
+              </div>
+            </div>
+
+            {grantItemsNeeded > 0 && (
+              <div className="mt-6 border-t border-red-950/30 pt-4 flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <p className="text-gray-300 text-sm font-mono tracking-wide">
+                    You need to purchase <span className="text-white font-bold">{grantItemsNeeded}</span> items.
+                  </p>
+                  {totalGrantCurrencyNeeded > 0 && (
+                    <p className="text-gray-300 text-sm font-mono tracking-wide">
+                      Total cost to reach target: <span className="text-[#b3002d] font-bold">{totalGrantCurrencyNeeded}</span> {getCurrencyName(grantCurrency)}.
+                    </p>
+                  )}
+                </div>
+
+                {totalGrantCurrencyNeeded > 0 && (
+                  <div className="flex flex-col gap-2 bg-black/40 p-4 border border-red-950/20">
+                    <span className="text-[10px] text-gray-500 tracking-widest uppercase mb-1">Time Investment Required</span>
+                    
+                    {grantCurrency === 'potionMix' ? (
+                      THEMES.map(theme => (
+                        <div key={theme.id} className="flex justify-between items-center border-b border-red-950/20 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${theme.colorClass.replace('text-', 'bg-')}`}></span>
+                            <span className={`text-xs ${theme.colorClass} uppercase tracking-wider`}>{theme.name}</span>
+                          </div>
+                          <span className="text-gray-300 text-sm font-mono font-bold">{Math.ceil(totalGrantCurrencyNeeded / theme.rate)} HRS</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${getTheme(grantCurrency).colorClass.replace('text-', 'bg-')}`}></span>
+                          <span className={`text-xs ${getTheme(grantCurrency).colorClass} uppercase tracking-wider`}>{getTheme(grantCurrency).name}</span>
+                        </div>
+                        <span className="text-gray-300 text-sm font-mono font-bold">{totalGrantCurrencyNeeded} HRS</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)] min-h-[350px] flex flex-col">
             <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-6 uppercase flex items-center justify-between">
               <span>Recent Mixes</span>
-              <span className="text-[10px] text-red-900/50">{projects.length} LOGGED</span>
+              <span className="text-xs text-red-700/80">{projects.length} LOGGED</span>
             </h2>
             
             {projects.length === 0 ? (
               <div className="flex-1 flex items-center justify-center border border-dashed border-red-950/30">
-                <p className="text-[10px] text-red-900/40 tracking-[0.2em] uppercase">No projects synthesized yet</p>
+                <p className="text-xs text-red-700/60 tracking-[0.2em] uppercase">No projects synthesized yet</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -462,7 +611,7 @@ export default function AlchemizeCalculator() {
                         
                         <button
                           onClick={() => handleDeleteProject(proj.id)}
-                          className="ml-2 w-6 h-6 flex items-center justify-center rounded text-red-950 hover:text-red-500 hover:bg-red-950/30 transition-all text-xs"
+                          className="ml-2 w-6 h-6 flex items-center justify-center rounded text-red-800 hover:text-red-500 hover:bg-red-950/30 transition-all text-sm"
                           title="Delete mix"
                         >
                           ✕
@@ -477,6 +626,18 @@ export default function AlchemizeCalculator() {
 
         </div>
       </div>
+
+      <footer className="mt-auto pt-8 pb-4 border-t border-red-950/30 text-center text-xs md:text-sm text-gray-400 font-mono tracking-[0.2em] uppercase">
+        Made with 💖 and open source{' '}
+        <a 
+          href="https://github.com/anshk/alchemize-calculator" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-[#b3002d] hover:text-red-500 underline underline-offset-4 transition-colors font-bold"
+        >
+          here
+        </a>
+      </footer>
     </main>
   );
 }
