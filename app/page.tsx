@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useMemo } from "react";
 import Image from "next/image";
 
 const THEMES = [
@@ -72,6 +72,8 @@ export default function AlchemizeCalculator() {
   const [grantValue, setGrantValue] = useState("");
   const [grantPrice, setGrantPrice] = useState("");
   const [grantCurrency, setGrantCurrency] = useState("potionMix");
+
+  const [optimizerTarget, setOptimizerTarget] = useState("");
 
   useEffect(() => {
     const savedProjects = localStorage.getItem("alchemize_projects");
@@ -225,6 +227,70 @@ export default function AlchemizeCalculator() {
       totalGrantCurrencyNeeded = grantItemsNeeded * priceNum;
     }
   }
+
+  const optimizedMixes = useMemo(() => {
+    const t = parseFloat(optimizerTarget);
+    if (isNaN(t) || t <= 0) return null;
+
+    const calculateYield = (r: number, g: number, a: number) => {
+      let remaining_a = a;
+      let remaining_g = g;
+
+      let r_to_a = Math.min(r, remaining_a);
+      let r_after_a = r - r_to_a;
+      remaining_a -= r_to_a;
+
+      let g_to_a = Math.min(g, remaining_a);
+      let g_after_a = g - g_to_a;
+      remaining_a -= g_to_a;
+
+      let r_to_g = Math.min(r_after_a, remaining_g);
+      let r_final = r_after_a - r_to_g;
+
+      return (r_to_a * 5) + (r_to_g * 4.5) + (r_final * 4) +
+             (g_to_a * 5) + (g_after_a * 4.5) +
+             (a * 5);
+    };
+
+    const minHours = Math.ceil(t / 5);
+    
+    let balanced = null;
+    for (let a = 0; a <= minHours; a++) {
+      let remainder = minHours - a;
+      let r = Math.floor(remainder / 2);
+      let g = remainder - r;
+      
+      let yield1 = calculateYield(r, g, a);
+      if (yield1 >= t) {
+        balanced = { r, g, a, yield: yield1 };
+        break;
+      }
+      
+      let yield2 = calculateYield(g, r, a);
+      if (yield2 >= t) {
+        balanced = { r: g, g: r, a, yield: yield2 };
+        break;
+      }
+    }
+
+    const minHoursNoA = Math.ceil(t / 4.5);
+    let noA = null;
+    for (let g = 0; g <= minHoursNoA; g++) {
+      let r = minHoursNoA - g;
+      let y = calculateYield(r, g, 0);
+      if (y >= t) {
+        noA = { r, g, a: 0, yield: y, minHours: minHoursNoA };
+        break;
+      }
+    }
+
+    return {
+      minHours,
+      pureA: { r: 0, g: 0, a: minHours, yield: minHours * 5 },
+      balanced,
+      noA
+    };
+  }, [optimizerTarget]);
 
   if (!isLoaded) {
     return <main className="min-h-screen p-6 md:p-12 max-w-7xl mx-auto flex flex-col gap-10 bg-[#050000]"></main>;
@@ -468,6 +534,107 @@ export default function AlchemizeCalculator() {
           </div>
 
           <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)]">
+            <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-6 uppercase">Trade Portal Optimizer</h2>
+            
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-red-700 tracking-[0.15em] uppercase font-bold">Target Potion Mix Needed</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={optimizerTarget}
+                  onChange={(e) => setOptimizerTarget(e.target.value)}
+                  className="bg-transparent border-b border-red-950 p-2 text-gray-200 outline-none focus:border-[#b3002d] transition-colors font-mono text-sm max-w-xs"
+                  placeholder="e.g. 34"
+                />
+              </div>
+
+              {optimizedMixes && (
+                <div className="flex flex-col gap-4 mt-2">
+                  <div className="bg-[#b3002d]/10 border-l-2 border-[#b3002d] p-4 text-sm font-mono flex items-center gap-3">
+                    <span className="text-gray-400">Absolute Minimum Time Required:</span>
+                    <span className="text-white font-bold text-lg">{optimizedMixes.minHours} HOURS</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                    
+                    {optimizedMixes.balanced && (
+                      <div className="border border-red-950/30 bg-black/40 p-4 flex flex-col gap-4">
+                        <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest">Balanced Path (Max Variety)</span>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                            <span className="text-xs text-red-500">R (Indie Gamedev)</span>
+                            <span className="text-gray-300 font-mono text-sm">{optimizedMixes.balanced.r}h</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                            <span className="text-xs text-amber-500">G (No Internet)</span>
+                            <span className="text-gray-300 font-mono text-sm">{optimizedMixes.balanced.g}h</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                            <span className="text-xs text-blue-500">A (Endless)</span>
+                            <span className="text-gray-300 font-mono text-sm">{optimizedMixes.balanced.a}h</span>
+                          </div>
+                        </div>
+                        <div className="mt-auto pt-2 text-right">
+                          <span className="text-[10px] text-gray-500 uppercase">Yields</span>
+                          <span className="text-[#b3002d] font-bold font-mono ml-2">{optimizedMixes.balanced.yield} MIX</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border border-red-950/30 bg-black/40 p-4 flex flex-col gap-4 opacity-75 hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">Pure Speed</span>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                          <span className="text-xs text-red-500">R</span>
+                          <span className="text-gray-500 font-mono text-sm">0h</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                          <span className="text-xs text-amber-500">G</span>
+                          <span className="text-gray-500 font-mono text-sm">0h</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                          <span className="text-xs text-blue-500 font-bold">A (Endless)</span>
+                          <span className="text-gray-300 font-mono text-sm">{optimizedMixes.pureA.a}h</span>
+                        </div>
+                      </div>
+                      <div className="mt-auto pt-2 text-right">
+                        <span className="text-[10px] text-gray-500 uppercase">Yields</span>
+                        <span className="text-[#b3002d] font-bold font-mono ml-2">{optimizedMixes.pureA.yield} MIX</span>
+                      </div>
+                    </div>
+
+                    {optimizedMixes.noA && (
+                      <div className="border border-red-950/30 bg-black/40 p-4 flex flex-col gap-4 opacity-75 hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Without Endless ({optimizedMixes.noA.minHours}H)</span>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                            <span className="text-xs text-red-500">R (Indie Gamedev)</span>
+                            <span className="text-gray-300 font-mono text-sm">{optimizedMixes.noA.r}h</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                            <span className="text-xs text-amber-500">G (No Internet)</span>
+                            <span className="text-gray-300 font-mono text-sm">{optimizedMixes.noA.g}h</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-red-950/20 pb-2">
+                            <span className="text-xs text-blue-500">A</span>
+                            <span className="text-gray-500 font-mono text-sm">0h</span>
+                          </div>
+                        </div>
+                        <div className="mt-auto pt-2 text-right">
+                          <span className="text-[10px] text-gray-500 uppercase">Yields</span>
+                          <span className="text-[#b3002d] font-bold font-mono ml-2">{optimizedMixes.noA.yield} MIX</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border border-red-950/60 bg-[#050000] p-6 shadow-[0_0_30px_rgba(50,0,0,0.2)]">
             <h2 className="text-[#b3002d] font-bold tracking-widest text-sm mb-4 uppercase">Grant Calculator</h2>
             
             <div className="mb-6 border-l-2 border-[#b3002d]/50 bg-[#b3002d]/10 p-4 text-xs font-mono">
@@ -630,7 +797,7 @@ export default function AlchemizeCalculator() {
       <footer className="mt-auto pt-8 pb-4 border-t border-red-950/30 text-center text-xs md:text-sm text-gray-400 font-mono tracking-[0.2em] uppercase">
         Made with 💖 and open source{' '}
         <a 
-          href="https://github.com/anshk/alchemize-calculator" 
+          href="https://github.com/ansh3108/alchemize-calculator" 
           target="_blank" 
           rel="noopener noreferrer" 
           className="text-[#b3002d] hover:text-red-500 underline underline-offset-4 transition-colors font-bold"
