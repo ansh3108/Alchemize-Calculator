@@ -26,3 +26,7 @@ A native desktop app designed for participants of **Alchemize**. This calculator
 ## Usage
 
 Download the latest version [here](https://github.com/ansh3108/Alchemize-Calculator) or [use it in your browser!](https://alchemize-calculator.vercel.app/)
+
+# Theme: No Internet
+
+The project follows No Internet theme by having a native desktop app, doesn't require any APIs, data is saved locally, and all the assets are are bundled directly inside the executable file.
